@@ -1,9 +1,6 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import mean_squared_error, r2_score
 
 # 1. Importación de Bibliotecas
 st.title('Integración de Big Data y Machine Learning en IoT')
@@ -31,19 +28,31 @@ st.write("### Mapa de Calor de Correlación")
 st.write(data.corr())
 
 # 3. Entrenamiento del Modelo de Machine Learning
-X = data[['sensor_1', 'sensor_2', 'sensor_3']]
-y = data['output']
+X = data[['sensor_1', 'sensor_2', 'sensor_3']].values
+y = data['output'].values
 
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+# Agregamos una columna de unos a X para el término independiente
+X = np.hstack((np.ones((X.shape[0], 1)), X))
 
-model = RandomForestRegressor()
-model.fit(X_train, y_train)
+# Dividimos los datos en entrenamiento y prueba manualmente
+np.random.seed(42)
+indices = np.random.permutation(X.shape[0])
+train_size = int(0.8 * X.shape[0])
+train_indices = indices[:train_size]
+test_indices = indices[train_size:]
 
-y_pred = model.predict(X_test)
+X_train, X_test = X[train_indices], X[test_indices]
+y_train, y_test = y[train_indices], y[test_indices]
+
+# Calculamos los coeficientes de la regresión lineal
+coefficients = np.linalg.inv(X_train.T @ X_train) @ X_train.T @ y_train
+
+# Predicciones
+y_pred = X_test @ coefficients
 
 # Evaluación del modelo
-mse = mean_squared_error(y_test, y_pred)
-r2 = r2_score(y_test, y_pred)
+mse = np.mean((y_test - y_pred) ** 2)
+r2 = 1 - (np.sum((y_test - y_pred) ** 2) / np.sum((y_test - np.mean(y_test)) ** 2))
 
 st.write("### Evaluación del Modelo")
 st.write(f"**Error Cuadrático Medio (MSE):** {mse}")
@@ -60,10 +69,10 @@ sensor_1 = st.slider('Valor del Sensor 1', 0.0, 1.0, 0.5)
 sensor_2 = st.slider('Valor del Sensor 2', 0.0, 1.0, 0.5)
 sensor_3 = st.slider('Valor del Sensor 3', 0.0, 1.0, 0.5)
 
-input_data = np.array([[sensor_1, sensor_2, sensor_3]])
-prediction = model.predict(input_data)
+input_data = np.array([1, sensor_1, sensor_2, sensor_3])
+prediction = input_data @ coefficients
 
-st.write(f"**Predicción del Modelo:** {prediction[0]}")
+st.write(f"**Predicción del Modelo:** {prediction}")
 
 # 5. Ejecución de la Aplicación
 # Para ejecutar esta aplicación, guarda el código en un archivo llamado `app.py` y ejecuta el siguiente comando en la terminal:
